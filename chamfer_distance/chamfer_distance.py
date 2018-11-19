@@ -11,42 +11,43 @@ class ChamferDistanceFunction(torch.autograd.Function):
     def forward(ctx, xyz1, xyz2):
         batchsize, n, _ = xyz1.size()
         _, m, _ = xyz2.size()
-        ctx.xyz1 = xyz1.contiguous()
-        ctx.xyz2 = xyz2.contiguous()
+        xyz1 = xyz1.contiguous()
+        xyz2 = xyz2.contiguous()
         dist1 = torch.zeros(batchsize, n)
         dist2 = torch.zeros(batchsize, m)
 
-        ctx.idx1 = torch.zeros(batchsize, n).type(torch.IntTensor)
-        ctx.idx2 = torch.zeros(batchsize, m).type(torch.IntTensor)
+        idx1 = torch.zeros(batchsize, n, dtype=torch.int)
+        idx2 = torch.zeros(batchsize, m, dtype=torch.int)
 
         if not xyz1.is_cuda:
-            cd.forward(ctx.xyz1, ctx.xyz2, dist1, dist2, ctx.idx1, ctx.idx2)
+            cd.forward(xyz1, xyz2, dist1, dist2, idx1, idx2)
         else:
             dist1 = dist1.cuda()
             dist2 = dist2.cuda()
-            ctx.idx1 = ctx.idx1.cuda()
-            ctx.idx2 = ctx.idx2.cuda()
-            cd.forward_cuda(ctx.xyz1, ctx.xyz2, dist1, dist2, ctx.idx1, ctx.idx2)
+            idx1 = idx1.cuda()
+            idx2 = idx2.cuda()
+            cd.forward_cuda(xyz1, xyz2, dist1, dist2, idx1, idx2)
 
-        ctx.dist1 = dist1
-        ctx.dist2 = dist2
+        ctx.save_for_backward(xyz1, xyz2, idx1, idx2)
 
         return dist1, dist2
 
     @staticmethod
     def backward(ctx, graddist1, graddist2):
+        xyz1, xyz2, idx1, idx2 = ctx.saved_tensors
+
         graddist1 = graddist1.contiguous()
         graddist2 = graddist2.contiguous()
 
-        gradxyz1 = torch.zeros(ctx.xyz1.size())
-        gradxyz2 = torch.zeros(ctx.xyz2.size())
+        gradxyz1 = torch.zeros(xyz1.size())
+        gradxyz2 = torch.zeros(xyz2.size())
 
         if not graddist1.is_cuda:
-            cd.backward(ctx.xyz1, ctx.xyz2, gradxyz1, gradxyz2, graddist1, graddist2, ctx.idx1, ctx.idx2)
+            cd.backward(xyz1, xyz2, gradxyz1, gradxyz2, graddist1, graddist2, idx1, idx2)
         else:
             gradxyz1 = gradxyz1.cuda()
             gradxyz2 = gradxyz2.cuda()
-            cd.backward_cuda(ctx.xyz1, ctx.xyz2, gradxyz1, gradxyz2, graddist1, graddist2, ctx.idx1, ctx.idx2)
+            cd.backward_cuda(xyz1, xyz2, gradxyz1, gradxyz2, graddist1, graddist2, idx1, idx2)
 
         return gradxyz1, gradxyz2
 
