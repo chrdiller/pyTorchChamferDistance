@@ -1,7 +1,7 @@
 #include <torch/torch.h>
 
 // CUDA forward declarations
-int ChamferDistanceKernelLauncher(
+void ChamferDistanceKernelLauncher(
     const int b, const int n,
     const float* xyz,
     const int m,
@@ -11,7 +11,7 @@ int ChamferDistanceKernelLauncher(
     float* result2,
     int* result2_i);
 
-int ChamferDistanceGradKernelLauncher(
+void ChamferDistanceGradKernelLauncher(
     const int b, const int n,
     const float* xyz1,
     const int m,
